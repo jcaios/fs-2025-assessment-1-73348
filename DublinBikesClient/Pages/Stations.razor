@@ -1,0 +1,203 @@
+﻿@page "/stations"
+@using DublinBikesClient.Models
+@using DublinBikesClient.Services
+@inject StationsApiClient Api
+
+<h3>Dublin Bike Stations</h3>
+
+<button @onclick="CreateStation">Create Station</button>
+
+<hr />
+
+<!-- FILTERS -->
+<input placeholder="Search name or address"
+       @bind="searchText"
+       @bind:event="oninput" />
+
+<select @bind="statusFilter">
+    <option value="">All</option>
+    <option value="OPEN">Open</option>
+    <option value="CLOSED">Closed</option>
+</select>
+
+<input type="number"
+       placeholder="Min available bikes"
+       @bind="minBikes" />
+
+<select @bind="sortOption">
+    <option value="name">Name</option>
+    <option value="bikes">Available Bikes</option>
+</select>
+
+<button @onclick="ApplyFilters">Apply</button>
+<button @onclick="ClearFilters">Clear</button>
+
+<hr />
+
+@if (isLoading)
+{
+    <p>Loading stations...</p>
+}
+else if (!stations.Any())
+{
+    <p>No stations found.</p>
+}
+else
+{
+    <ul>
+        @foreach (var s in pagedStations)
+        {
+            <li tabindex="0">
+                <b>@s.Name</b> — @s.Address <br />
+                Status: <b>@s.Status</b> <br />
+                Bikes: @s.AvailableBikes / @s.BikeStands <br />
+
+                <button @onclick="() => SelectStation(s)">Details</button>
+                <button @onclick="() => EditStation(s)">Edit</button>
+            </li>
+        }
+    </ul>
+
+    <button @onclick="LoadMore">Load more</button>
+}
+
+<hr />
+
+@if (selectedStation != null)
+{
+    <h4>Station Details</h4>
+    <p><b>Name:</b> @selectedStation.Name</p>
+    <p><b>Address:</b> @selectedStation.Address</p>
+    <p><b>Status:</b> @selectedStation.Status</p>
+    <p><b>Total stands:</b> @selectedStation.BikeStands</p>
+    <p><b>Available bikes:</b> @selectedStation.AvailableBikes</p>
+    <p><b>Available stands:</b> @selectedStation.AvailableStands</p>
+}
+
+@if (showForm)
+{
+    <hr />
+    <StationForm Station="editingStation"
+                 IsEdit="isEdit"
+                 OnSaved="ReloadStations"
+                 OnCancel="CloseForm" />
+}
+
+@code {
+    private List<StationDto> stations = new();
+    private List<StationDto> filteredStations = new();
+    private List<StationDto> pagedStations = new();
+
+    private StationDto? selectedStation;
+
+    private string searchText = "";
+    private string statusFilter = "";
+    private int minBikes = 0;
+    private string sortOption = "name";
+
+    private int pageSize = 10;
+    private int currentPage = 1;
+
+    private bool isLoading = true;
+
+    private bool showForm = false;
+    private bool isEdit = false;
+    private StationDto? editingStation;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadStations();
+    }
+
+    async Task LoadStations()
+    {
+        isLoading = true;
+        stations = await Api.GetStationsAsync();
+        ApplyFilters();
+        isLoading = false;
+    }
+
+    void ApplyFilters()
+    {
+        filteredStations = stations
+            .Where(s =>
+                (string.IsNullOrWhiteSpace(searchText) ||
+                 s.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                 s.Address.Contains(searchText, StringComparison.OrdinalIgnoreCase)) &&
+                (string.IsNullOrEmpty(statusFilter) || s.Status == statusFilter) &&
+                s.AvailableBikes >= minBikes
+            )
+            .ToList();
+
+        filteredStations = sortOption switch
+        {
+            "bikes" => filteredStations.OrderByDescending(s => s.AvailableBikes).ToList(),
+            _ => filteredStations.OrderBy(s => s.Name).ToList()
+        };
+
+        currentPage = 1;
+        UpdatePaging();
+    }
+
+    void ClearFilters()
+    {
+        searchText = "";
+        statusFilter = "";
+        minBikes = 0;
+        sortOption = "name";
+        ApplyFilters();
+    }
+
+    void UpdatePaging()
+    {
+        pagedStations = filteredStations
+            .Take(currentPage * pageSize)
+            .ToList();
+    }
+
+    void LoadMore()
+    {
+        currentPage++;
+        UpdatePaging();
+    }
+
+    void SelectStation(StationDto station)
+    {
+        selectedStation = station;
+    }
+
+    void CreateStation()
+    {
+        editingStation = new StationDto();
+        isEdit = false;
+        showForm = true;
+    }
+
+    void EditStation(StationDto station)
+    {
+        editingStation = new StationDto
+        {
+            Number = station.Number,
+            Name = station.Name,
+            Address = station.Address,
+            Status = station.Status,
+            BikeStands = station.BikeStands,
+            AvailableBikes = station.AvailableBikes,
+            AvailableStands = station.AvailableStands
+        };
+
+        isEdit = true;
+        showForm = true;
+    }
+
+    async Task ReloadStations()
+    {
+        showForm = false;
+        await LoadStations();
+    }
+
+    void CloseForm()
+    {
+        showForm = false;
+    }
+}

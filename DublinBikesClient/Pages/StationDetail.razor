@@ -1,0 +1,65 @@
+﻿@using DublinBikesClient.Models
+@using DublinBikesClient.Services
+@inject StationsApiClient Api
+
+@if (Station == null)
+{
+    <p><em>Select a station to see details.</em></p>
+}
+else
+{
+    <div style="border:1px solid #ccc; padding:10px; border-radius:5px;">
+        <h3>@Station.Name</h3>
+        <p><strong>Address:</strong> @Station.Address</p>
+        <p>
+            <strong>Status:</strong>
+            <span style="color:@(Station.Status == "OPEN" ? "green" : "red")">
+                @Station.Status
+            </span>
+        </p>
+        <p><strong>Total Stands:</strong> @Station.BikeStands</p>
+        <p><strong>Available Bikes:</strong> @Station.AvailableBikes</p>
+        <p><strong>Available Stands:</strong> @Station.AvailableStands</p>
+
+        <div style="margin-top:10px;">
+            <strong>Occupancy:</strong>
+            <progress value="@Station.AvailableBikes" max="@Station.BikeStands"></progress>
+        </div>
+
+        <p>
+            <small>
+                Last update: @{
+                    if (DateTime.TryParse(Station.LastUpdate, out var lastUpdate))
+                    {
+                        @lastUpdate.ToLocalTime().ToString("g")
+                    }
+                    else
+                    {
+                        <text>N/A</text>
+                    }
+                }
+            </small>
+        </p>
+    </div>
+}
+
+@code {
+    [Parameter] public int? StationNumber { get; set; }
+    public StationDto? Station { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (StationNumber.HasValue)
+        {
+            try
+            {
+                Station = await Api.GetStationAsync(StationNumber.Value);
+            }
+            catch
+            {
+                Station = null;
+            }
+        }
+    }
+}
+

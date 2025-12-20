@@ -1,0 +1,77 @@
+﻿@using DublinBikesClient.Models
+@using DublinBikesClient.Services
+@inject StationsApiClient Api
+
+@if (Station == null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <EditForm Model="Station" OnValidSubmit="HandleSubmit">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div>
+            <label>Number</label><br />
+            <InputNumber @bind-Value="Station.Number" disabled="@IsEdit" />
+        </div>
+
+        <div>
+            <label>Name</label><br />
+            <InputText @bind-Value="Station.Name" />
+        </div>
+
+        <div>
+            <label>Address</label><br />
+            <InputText @bind-Value="Station.Address" />
+        </div>
+
+        <div>
+            <label>Status</label><br />
+            <InputSelect @bind-Value="Station.Status">
+                <option value="OPEN">OPEN</option>
+                <option value="CLOSED">CLOSED</option>
+            </InputSelect>
+        </div>
+
+        <div>
+            <label>Total Bike Stands</label><br />
+            <InputNumber @bind-Value="Station.BikeStands" />
+        </div>
+
+        <div>
+            <label>Available Bikes</label><br />
+            <InputNumber @bind-Value="Station.AvailableBikes" />
+        </div>
+
+        <div style="margin-top:10px;">
+            <button type="submit">
+                @(IsEdit ? "Update Station" : "Create Station")
+            </button>
+            <button type="button" @onclick="Cancel">Cancel</button>
+        </div>
+    </EditForm>
+}
+
+@code {
+    [Parameter] public StationDto? Station { get; set; }
+    [Parameter] public bool IsEdit { get; set; }
+    [Parameter] public EventCallback OnSaved { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    async Task HandleSubmit()
+    {
+        if (IsEdit)
+            await Api.UpdateStationAsync(Station!);
+        else
+            await Api.CreateStationAsync(Station!);
+
+        await OnSaved.InvokeAsync();
+    }
+
+    async Task Cancel()
+    {
+        await OnCancel.InvokeAsync();
+    }
+}
